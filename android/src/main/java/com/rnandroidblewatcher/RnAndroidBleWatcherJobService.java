@@ -166,7 +166,7 @@ public class RnAndroidBleWatcherJobService extends JobService
           Handler handler = new Handler();
           handler.postDelayed(() -> {
               Log.d("RnAndroidBleWatcher", "Restarting Job: " + deviceId);
-              StartJob(context, deviceId, taskName, options);
+              StartJob(context, deviceId, taskName, options, false);
           }, RESTART_DELAY);
         }
       }
@@ -197,13 +197,18 @@ public class RnAndroidBleWatcherJobService extends JobService
 
       PersistableBundle options = params.getExtras().getPersistableBundle("options");
 
-      StartJob(getApplicationContext(), deviceId, taskName, options);
+      Handler handler = new Handler();
+      handler.postDelayed(() -> {
+        Log.d("RnAndroidBleWatcher", "Restarting Job: " + deviceId);
+        StartJob(getApplicationContext(), deviceId, taskName, options, false);
+      }, RESTART_DELAY);
+
     }
     return true;
   }
 
   @RequiresApi(api = Build.VERSION_CODES.M)
-  public static void StartJob(Context context, String deviceId, String taskName, PersistableBundle options) {
+  public static void StartJob(Context context, String deviceId, String taskName, PersistableBundle options, boolean forceStop) {
       Log.d(LOG_TAG, "Starting Job: " + deviceId);
 
       ComponentName serviceComponent = new ComponentName(context, RnAndroidBleWatcherJobService.class);
@@ -242,7 +247,7 @@ public class RnAndroidBleWatcherJobService extends JobService
        * If our job has been scheduled, cancel it
        * Cancelling the job will called onStopJob where we will reschedule the job
        */
-      if (hasBeenScheduled) {
+      if (hasBeenScheduled && forceStop) {
         Log.d("RnAndroidBleWatcher", "Cancelling job");
         jobScheduler.cancel(JOB_ID);
       } else {

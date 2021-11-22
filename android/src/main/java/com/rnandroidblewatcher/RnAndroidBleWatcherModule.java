@@ -77,7 +77,7 @@ public class RnAndroidBleWatcherModule extends ReactContextBaseJavaModule {
       Log.d(LOG_TAG, "Starting monitoring on: " + deviceId);
       PersistableBundle bundle = optionsToBundle(options);
 
-      RnAndroidBleWatcherJobService.StartJob(mContext, deviceId, taskName, bundle);
+      RnAndroidBleWatcherJobService.StartJob(mContext, deviceId, taskName, bundle, true);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
