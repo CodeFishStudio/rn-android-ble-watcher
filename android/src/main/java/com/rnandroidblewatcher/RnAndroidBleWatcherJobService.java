@@ -28,6 +28,8 @@ import androidx.core.content.ContextCompat;
 import com.facebook.react.HeadlessJsTaskService;
 import com.facebook.react.jstasks.HeadlessJsTaskConfig;
 
+import java.util.Set;
+
 import okhttp3.internal.http2.Header;
 
 @RequiresApi(api = Build.VERSION_CODES.M)
@@ -48,14 +50,38 @@ public class RnAndroidBleWatcherJobService extends JobService
 
   private BluetoothGatt bluetoothGatt = null;
 
-  public void StartBackgroundTask(String deviceId, String taskName, Bundle options) {
+  private BroadcastReceiver broadcastReceiver = null;
+
+  public static Bundle persistableBundleToBundle(
+          PersistableBundle persistableBundle) {
+    Set<String> keySet = persistableBundle.keySet();
+    Bundle bundle = new Bundle();
+    for (String key : keySet) {
+      Object value = persistableBundle.get(key);
+      if (value instanceof Boolean) {
+        bundle.putBoolean(key, (boolean) value);
+      } else if (value instanceof Integer) {
+        bundle.putInt(key, (int) value);
+      } else if (value instanceof String) {
+        bundle.putString(key, (String) value);
+      } else if (value instanceof String[]) {
+        bundle.putStringArray(key, (String[]) value);
+      } else if (value instanceof PersistableBundle) {
+        Bundle innerBundle = persistableBundleToBundle((PersistableBundle) value);
+        bundle.putBundle(key, innerBundle);
+      }
+    }
+    return bundle;
+  }
+
+  public void StartBackgroundTask(String deviceId, String taskName, PersistableBundle options) {
     Intent service = new Intent(getApplicationContext(), RnAndroidBleWatcherTask.class);
 
     Bundle bundle = new Bundle();
 
     bundle.putString("deviceId", deviceId);
     bundle.putString("taskName", taskName);
-    bundle.putBundle("options", options);
+    bundle.putBundle("options", persistableBundleToBundle(options));
     service.putExtras(bundle);
 
     /**
@@ -80,7 +106,7 @@ public class RnAndroidBleWatcherJobService extends JobService
 
     String deviceId = params.getExtras().getString("deviceId");
     String taskName = params.getExtras().getString("taskName");
-    Bundle options = new Bundle();
+    PersistableBundle options = new PersistableBundle();
     options.putAll(params.getExtras().getPersistableBundle("options"));
 
     Context ctx = getApplicationContext();
@@ -109,10 +135,15 @@ public class RnAndroidBleWatcherJobService extends JobService
 
     IntentFilter taskedFinished = new IntentFilter(ACTION_TASK_FINISHED);
 
-    BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+    broadcastReceiver = new BroadcastReceiver() {
       @Override
       public void onReceive(Context context, Intent intent) {
         if (intent.getAction() == ACTION_TASK_FINISHED) {
+          if (broadcastReceiver != null) {
+            Log.d("RnAndroidBleWatcher", "Unregistering broadcast receiver");
+            unregisterReceiver(broadcastReceiver);
+            broadcastReceiver = null;
+          }
           /**
            * Check if we still have a bluetooth connection and disconnect it
            */
@@ -133,30 +164,49 @@ public class RnAndroidBleWatcherJobService extends JobService
            * Delay it so that the BLE device is properly disconnected
            */
           Handler handler = new Handler();
-          handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-              StartJob(context, deviceId, taskName, params.getExtras());
-            }
+          handler.postDelayed(() -> {
+              Log.d("RnAndroidBleWatcher", "Restarting Job: " + deviceId);
+              StartJob(context, deviceId, taskName, options);
           }, RESTART_DELAY);
         }
       }
     };
-
     registerReceiver(broadcastReceiver, taskedFinished);
-    return false;
+    return true;
   }
 
   @Override
   public boolean onStopJob(JobParameters params) {
-    return false;
+    Log.d("RnAndroidBleWatcher", "Job Stopped");
+
+    if (bluetoothGatt != null) {
+      Log.d("RnAndroidBleWatcher", "Bluetooth Disconnecting");
+      bluetoothGatt.disconnect();
+    }
+
+    if (broadcastReceiver != null) {
+      unregisterReceiver(broadcastReceiver);
+
+      broadcastReceiver = null;
+    }
+
+    if (recreateJobOnStop) {
+      Log.d("RnAndroidBleWatcher", "Recreating after stop?");
+      String deviceId = params.getExtras().getString("deviceId");
+      String taskName = params.getExtras().getString("taskName");
+
+      PersistableBundle options = params.getExtras().getPersistableBundle("options");
+
+      StartJob(getApplicationContext(), deviceId, taskName, options);
+    }
+    return true;
   }
 
   @RequiresApi(api = Build.VERSION_CODES.M)
   public static void StartJob(Context context, String deviceId, String taskName, PersistableBundle options) {
       Log.d(LOG_TAG, "Starting Job: " + deviceId);
 
-      ComponentName serviceComponent = new ComponentName(context, RnAndroidBleWatcherTask.class);
+      ComponentName serviceComponent = new ComponentName(context, RnAndroidBleWatcherJobService.class);
 
       JobInfo.Builder builder = new JobInfo.Builder(JOB_ID, serviceComponent);
 
@@ -167,7 +217,7 @@ public class RnAndroidBleWatcherJobService extends JobService
       PersistableBundle bundle = new PersistableBundle();
 
       bundle.putString("deviceId", deviceId);
-      bundle.putString("taskName", deviceId);
+      bundle.putString("taskName", taskName);
 
       bundle.putPersistableBundle("options", options);
 
@@ -193,23 +243,31 @@ public class RnAndroidBleWatcherJobService extends JobService
        * Cancelling the job will called onStopJob where we will reschedule the job
        */
       if (hasBeenScheduled) {
+        Log.d("RnAndroidBleWatcher", "Cancelling job");
         jobScheduler.cancel(JOB_ID);
       } else {
+        Log.d("RnAndroidBleWatcher", "Scheduling Job");
         jobScheduler.schedule(builder.build());
       }
 
       /**
        * Create a wakelock to keep the job alive?
        */
-      /*PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
-      PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherService:wakelock");
-      wakeLock.acquire(); */
+      PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
+      PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
+      wakeLock.acquire();
   }
 
   public static void StopJob(Context context) {
     if (mInstance != null) {
       mInstance.recreateJobOnStop = false;
+
+      if (mInstance.broadcastReceiver != null) {
+        mInstance.unregisterReceiver(mInstance.broadcastReceiver);
+        mInstance.broadcastReceiver = null;
+      }
     }
+
 
     JobScheduler jobScheduler = null;
     jobScheduler = context.getSystemService(JobScheduler.class);

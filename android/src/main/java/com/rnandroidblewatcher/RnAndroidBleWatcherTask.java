@@ -41,7 +41,6 @@ public class RnAndroidBleWatcherTask extends HeadlessJsTaskService {
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     Log.d("RnAndroidBleWatcher", "Start command called");
-    super.onStartCommand(intent, flags, startId);
 
     Bundle extras = intent.getExtras();
 
@@ -60,9 +59,14 @@ public class RnAndroidBleWatcherTask extends HeadlessJsTaskService {
 
     notificationManager.createNotificationChannel(channel);
 
+    int iconResId = getAppResourceId("background_task_icon", "drawable");
+
+    if (iconResId == 0) {
+      iconResId = this.getApplicationInfo().icon;
+    }
     Notification notification = new Notification.Builder(this, channelId)
         .setContentTitle(channelName)
-        .setSmallIcon(R.drawable.redbox_top_border_background)
+        .setSmallIcon(iconResId)
         .setPriority(Notification.PRIORITY_HIGH)
         .build();
 
@@ -75,4 +79,20 @@ public class RnAndroidBleWatcherTask extends HeadlessJsTaskService {
     }
     return START_STICKY;
   }
+
+  @RequiresApi(api = Build.VERSION_CODES.M)
+  @Override
+  public void onDestroy() {
+    super.onDestroy();
+
+    Intent intent = new Intent();
+    intent.setAction(RnAndroidBleWatcherJobService.ACTION_TASK_FINISHED);
+    sendBroadcast(intent);
+
+    Log.d("RnAndroidBleWatcher", "Destroyed task");
+  }
+  private int getAppResourceId(String resName, String resType) {
+    return this.getResources().getIdentifier(resName, resType,this.getPackageName());
+  }
+
 }

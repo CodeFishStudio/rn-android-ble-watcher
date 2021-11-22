@@ -1,27 +1,44 @@
-# rn-android-ble-watcher
+# React Native Android BLE Watcher
 
-Watches for Bluetooth Connections
+Watches for Bluetooth Connections and runs background task
 
 ## Installation
 
 ```sh
-npm install rn-android-ble-watcher
+npm install @damocodefish/rn-android-ble-watcher
 ```
 
 ## Usage
 
+BackgroundTask.js
 ```js
-import { multiply } from "rn-android-ble-watcher";
-
-// ...
-
-const result = await multiply(3, 7);
+module.exports = async (args) => {
+    console.log('Background task called', args);
+};
 ```
 
-## Contributing
 
-See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
+```js
+import {AppRegistry} from 'react-native';
 
-## License
+import { configure, startMonitoring, stopMonitoring} from "@damocodefish/rn-android-ble-watcher";
 
-MIT
+import BackgroundTask from './BackgroundTask.js';
+
+AppRegistry.registerHeadlessTask('MyBackgroundTask', () => BackgroundTask);
+
+// ...
+configure({
+    notification: {
+        channelId:'MyExampleApp',
+        channelName: 'My Example App',
+    },
+});
+
+// Starts monitoring for device with address FF:FF:FF:FF:FF:FF and runs MyBackgroundTask
+startMonitoring('FF:FF:FF:FF:FF:FF', 'MyBackgroundTask');
+
+// stopMonitoring();
+
+```
+

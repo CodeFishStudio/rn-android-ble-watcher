@@ -1,3 +1,3 @@
-export default () => {
-    console.log('Running background task');
+module.exports = async taskData => {
+    console.log('Running background task', taskData);
 };
