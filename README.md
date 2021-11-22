@@ -5,7 +5,7 @@ Watches for Bluetooth Connections and runs background task
 ## Installation
 
 ```sh
-npm install @damocodefish/rn-android-ble-watcher
+npm install rn-android-ble-watcher
 ```
 
 ## Usage
@@ -21,7 +21,7 @@ module.exports = async (args) => {
 ```js
 import {AppRegistry} from 'react-native';
 
-import { configure, startMonitoring, stopMonitoring} from "@damocodefish/rn-android-ble-watcher";
+import { configure, startMonitoring, stopMonitoring} from "rn-android-ble-watcher";
 
 import BackgroundTask from './BackgroundTask.js';
 
