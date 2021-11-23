@@ -166,7 +166,9 @@ public class RnAndroidBleWatcherJobService extends JobService
           Handler handler = new Handler();
           handler.postDelayed(() -> {
               Log.d("RnAndroidBleWatcher", "Restarting Job: " + deviceId);
-              StartJob(context, deviceId, taskName, options, false);
+              if (recreateJobOnStop) {
+                StartJob(context, deviceId, taskName, options, false);
+              }
           }, RESTART_DELAY);
         }
       }
