@@ -1,6 +1,6 @@
 {
   "name": "rn-android-ble-watcher",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Watches for Bluetooth Connections",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",

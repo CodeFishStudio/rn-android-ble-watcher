@@ -262,7 +262,10 @@ public class RnAndroidBleWatcherJobService extends JobService
        */
       PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
       PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
-      wakeLock.acquire();
+
+			if (wakeLock.isHeld() == false) {
+							wakeLock.acquire();
+      }
   }
 
   public static void StopJob(Context context) {
@@ -280,6 +283,14 @@ public class RnAndroidBleWatcherJobService extends JobService
     jobScheduler = context.getSystemService(JobScheduler.class);
 
     jobScheduler.cancel(JOB_ID);
+
+    PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
+    PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
+
+		if (wakeLock.isHeld()) {
+						wakeLock.release();
+		}
+
 
   }
 }
