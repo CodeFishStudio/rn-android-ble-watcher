@@ -52,6 +52,8 @@ public class RnAndroidBleWatcherJobService extends JobService
 
   private BroadcastReceiver broadcastReceiver = null;
 
+  public static PowerManager.WakeLock wakeLock = null;
+
   public static Bundle persistableBundleToBundle(
           PersistableBundle persistableBundle) {
     Set<String> keySet = persistableBundle.keySet();
@@ -261,10 +263,10 @@ public class RnAndroidBleWatcherJobService extends JobService
        * Create a wakelock to keep the job alive?
        */
       PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
-      PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
+      wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
 
-			if (wakeLock.isHeld() == false) {
-				  wakeLock.acquire();
+      if (wakeLock.isHeld() == false) {
+        wakeLock.acquire();
       }
   }
 
@@ -278,12 +280,10 @@ public class RnAndroidBleWatcherJobService extends JobService
       }
     }
 
-    PowerManager pm = (PowerManager)  context.getSystemService(Context.POWER_SERVICE);
-    PowerManager.WakeLock wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RnAndroidBleWatcherJobService:wakelock");
 
-		if (wakeLock.isHeld()) {
-				wakeLock.release();
-		}
+    if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+    }
 
 
     JobScheduler jobScheduler = null;
@@ -291,7 +291,12 @@ public class RnAndroidBleWatcherJobService extends JobService
 
     jobScheduler.cancel(JOB_ID);
 
+  }
 
-
+  @Override
+  public void onDestroy() {
+    if (wakeLock != null && wakeLock.isHeld() == false) {
+        wakeLock.acquire();
+    }
   }
 }
